@@ -162,7 +162,7 @@ function spotifyFetch(path, token, options) {
       return res.json().then(function (data) {
         if (!res.ok) {
           var msg = (data && data.error && data.error.message) || res.statusText;
-          throw new Error('Spotify ' + res.status + ': ' + msg);
+          throw new Error('Spotify ' + res.status + ' on ' + url + ': ' + msg);
         }
         return data;
       });
