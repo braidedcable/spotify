@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--
+  Liked Songs Shuffed — OAuth Callback Page
+  ==========================================
+  Host this file at the URL you registered as your Spotify Redirect URI.
+
+  Recommended: GitHub Pages
+    1. Push this repo to GitHub.
+    2. Go to Settings → Pages → deploy from the main branch root.
+    3. Your callback URL will be: https://<username>.github.io/<repo>/callback.html
+    4. Add that URL as a Redirect URI in your Spotify app settings.
+    5. Set REDIRECT_URI in src/bookmarklet.js to match.
+
+  This page:
+    • Extracts the access token from the URL hash (Implicit Grant response)
+    • Stores it in localStorage so the bookmarklet can pick it up
+    • Closes itself
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spotify Auth — Liked Songs Shuffed</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #121212;
+      font-family: "Circular", system-ui, sans-serif;
+      color: #fff;
+    }
+    .card {
+      text-align: center;
+      padding: 40px;
+    }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p  { color: #b3b3b3; margin: 0; font-size: 14px; }
+    .error { color: #e91429; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="icon">♻</div>
+    <h1>Authorizing…</h1>
+    <p>Please wait.</p>
+  </div>
+
+  <script>
+    (function () {
+      var TOKEN_KEY  = 'sls_access_token';
+      var EXPIRY_KEY = 'sls_token_expiry';
+
+      function show(icon, title, body, isError) {
+        document.getElementById('card').innerHTML =
+          '<div class="icon">' + icon + '</div>' +
+          '<h1' + (isError ? ' class="error"' : '') + '>' + title + '</h1>' +
+          '<p>' + body + '</p>';
+      }
+
+      // Parse the URL hash: #access_token=...&token_type=Bearer&expires_in=3600&...
+      var hash = window.location.hash.slice(1);
+      if (!hash) {
+        // Check query string for error
+        var params = new URLSearchParams(window.location.search);
+        var error = params.get('error');
+        show('✖', 'Authorization failed', error || 'No token received.', true);
+        return;
+      }
+
+      var params = new URLSearchParams(hash);
+      var token     = params.get('access_token');
+      var expiresIn = parseInt(params.get('expires_in') || '3600', 10);
+      var error     = params.get('error');
+
+      if (error || !token) {
+        show('✖', 'Authorization failed', error || 'No access token in response.', true);
+        return;
+      }
+
+      // Store in localStorage — the bookmarklet polls for this
+      try {
+        localStorage.setItem(TOKEN_KEY,  token);
+        localStorage.setItem(EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
+      } catch (e) {
+        show('✖', 'Storage error', 'Could not save token: ' + e.message, true);
+        return;
+      }
+
+      show('✔', 'Authenticated!', 'This window will close automatically…');
+
+      // Give the parent a moment to notice, then close
+      setTimeout(function () {
+        window.close();
+        // If window.close() is blocked, show a message
+        setTimeout(function () {
+          show('✔', 'Authenticated!', 'You can close this tab and return to the previous page.');
+        }, 500);
+      }, 800);
+    })();
+  </script>
+</body>
+</html>
