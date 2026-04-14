@@ -9,14 +9,15 @@
 //   5. Run `npm run build` and use the output as your bookmark URL.
 // ============================================================
 
-var CLIENT_ID   = 'YOUR_CLIENT_ID_HERE';
-var REDIRECT_URI = 'https://YOUR_GITHUB_USERNAME.github.io/spotify/callback.html';
+var CLIENT_ID    = '54e4d713f18a4e11bf270bcbd0e154ff';
+var REDIRECT_URI = 'https://braidedcable.github.io/spotify/callback.html';
 
-var PLAYLIST_NAME = 'Liked Songs Shuffed';
-var SCOPES = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
-var TOKEN_KEY  = 'sls_access_token';
-var EXPIRY_KEY = 'sls_token_expiry';
-var BASE_URL   = 'https://api.spotify.com/v1';
+var PLAYLIST_NAME  = 'Liked Songs Shuffed';
+var SCOPES         = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
+var TOKEN_KEY      = 'sls_access_token';
+var EXPIRY_KEY     = 'sls_token_expiry';
+var BASE_URL       = 'https://api.spotify.com/v1';
+var CALLBACK_ORIGIN = 'https://braidedcable.github.io';
 
 // ── UI overlay ───────────────────────────────────────────────
 
@@ -54,6 +55,26 @@ function dismissOverlay(el, delay) {
   }, delay || 4000);
 }
 
+// ── PKCE helpers ─────────────────────────────────────────────
+
+function base64urlEncode(buffer) {
+  var bytes = new Uint8Array(buffer);
+  var str = '';
+  for (var i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function generateCodeVerifier() {
+  var array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64urlEncode(array);
+}
+
+function generateCodeChallenge(verifier) {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+    .then(function (buffer) { return base64urlEncode(buffer); });
+}
+
 // ── Auth ─────────────────────────────────────────────────────
 
 function getStoredToken() {
@@ -68,34 +89,55 @@ function authenticate() {
     var existing = getStoredToken();
     if (existing) { resolve(existing); return; }
 
-    var state = Math.random().toString(36).slice(2);
-    var authUrl = 'https://accounts.spotify.com/authorize' +
-      '?client_id='     + encodeURIComponent(CLIENT_ID) +
-      '&response_type=token' +
-      '&redirect_uri='  + encodeURIComponent(REDIRECT_URI) +
-      '&scope='         + encodeURIComponent(SCOPES) +
-      '&state='         + state +
-      '&show_dialog=false';
+    var verifier = generateCodeVerifier();
+    generateCodeChallenge(verifier).then(function (challenge) {
+      var nonce = Math.random().toString(36).slice(2);
+      // Pass verifier via state so callback.html can use it for the token exchange
+      var state = nonce + '.' + verifier;
 
-    var popup = window.open(authUrl, 'sls_auth', 'width=500,height=700,menubar=no,toolbar=no');
-    if (!popup) {
-      reject(new Error('Popup was blocked. Allow popups for this page and try again.'));
-      return;
-    }
+      var authUrl = 'https://accounts.spotify.com/authorize' +
+        '?client_id='             + encodeURIComponent(CLIENT_ID) +
+        '&response_type=code' +
+        '&redirect_uri='          + encodeURIComponent(REDIRECT_URI) +
+        '&scope='                 + encodeURIComponent(SCOPES) +
+        '&state='                 + encodeURIComponent(state) +
+        '&code_challenge='        + challenge +
+        '&code_challenge_method=S256' +
+        '&show_dialog=false';
 
-    var timer = setInterval(function () {
-      var token = getStoredToken();
-      if (token) {
-        clearInterval(timer);
-        try { popup.close(); } catch (_) {}
-        resolve(token);
+      var popup = window.open(authUrl, 'sls_auth', 'width=500,height=700,menubar=no,toolbar=no');
+      if (!popup) {
+        reject(new Error('Popup was blocked. Allow popups for this page and try again.'));
         return;
       }
-      if (popup.closed) {
+
+      function onMessage(event) {
+        if (event.origin !== CALLBACK_ORIGIN) return;
+        var data = event.data;
+        if (!data || !data.type) return;
+        window.removeEventListener('message', onMessage);
         clearInterval(timer);
-        reject(new Error('Authentication cancelled.'));
+        if (data.type === 'sls_token') {
+          localStorage.setItem(TOKEN_KEY,  data.token);
+          localStorage.setItem(EXPIRY_KEY, String(Date.now() + data.expiresIn * 1000));
+          try { popup.close(); } catch (_) {}
+          resolve(data.token);
+        } else if (data.type === 'sls_error') {
+          reject(new Error(data.error));
+        }
       }
-    }, 500);
+      window.addEventListener('message', onMessage);
+
+      var timer = setInterval(function () {
+        if (popup.closed) {
+          clearInterval(timer);
+          window.removeEventListener('message', onMessage);
+          if (!getStoredToken()) {
+            reject(new Error('Authentication cancelled.'));
+          }
+        }
+      }, 500);
+    });
   });
 }
 
@@ -169,7 +211,6 @@ function createPlaylist(userId, name, token) {
 }
 
 function replacePlaylistTracks(playlistId, uris, token) {
-  // PUT replaces all tracks (accepts up to 100)
   var first = uris.slice(0, 100);
   return spotifyFetch('/playlists/' + playlistId + '/tracks', token, {
     method: 'PUT',
@@ -222,7 +263,6 @@ function fisherYates(array) {
 // ── Main ──────────────────────────────────────────────────────
 
 (function () {
-  // Remove any existing overlay
   var old = document.getElementById('sls-overlay');
   if (old) old.remove();
 

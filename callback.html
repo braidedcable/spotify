@@ -12,8 +12,9 @@
     5. Set REDIRECT_URI in src/bookmarklet.js to match.
 
   This page:
-    • Extracts the access token from the URL hash (Implicit Grant response)
-    • Stores it in localStorage so the bookmarklet can pick it up
+    • Receives the authorization code from Spotify (PKCE flow)
+    • Exchanges it for an access token
+    • Sends the token back to the bookmarklet via postMessage
     • Closes itself
 -->
 <html lang="en">
@@ -51,8 +52,8 @@
 
   <script>
     (function () {
-      var TOKEN_KEY  = 'sls_access_token';
-      var EXPIRY_KEY = 'sls_token_expiry';
+      var CLIENT_ID    = '54e4d713f18a4e11bf270bcbd0e154ff';
+      var REDIRECT_URI = 'https://braidedcable.github.io/spotify/callback.html';
 
       function show(icon, title, body, isError) {
         document.getElementById('card').innerHTML =
@@ -61,45 +62,68 @@
           '<p>' + body + '</p>';
       }
 
-      // Parse the URL hash: #access_token=...&token_type=Bearer&expires_in=3600&...
-      var hash = window.location.hash.slice(1);
-      if (!hash) {
-        // Check query string for error
-        var params = new URLSearchParams(window.location.search);
-        var error = params.get('error');
-        show('✖', 'Authorization failed', error || 'No token received.', true);
+      function sendToOpener(msg) {
+        if (window.opener) {
+          window.opener.postMessage(msg, '*');
+        }
+      }
+
+      var params = new URLSearchParams(window.location.search);
+      var code  = params.get('code');
+      var state = params.get('state');
+      var error = params.get('error');
+
+      if (error || !code) {
+        show('✖', 'Authorization failed', error || 'No code received.', true);
+        sendToOpener({ type: 'sls_error', error: error || 'No authorization code received.' });
         return;
       }
 
-      var params = new URLSearchParams(hash);
-      var token     = params.get('access_token');
-      var expiresIn = parseInt(params.get('expires_in') || '3600', 10);
-      var error     = params.get('error');
-
-      if (error || !token) {
-        show('✖', 'Authorization failed', error || 'No access token in response.', true);
+      if (!state || state.indexOf('.') === -1) {
+        show('✖', 'Authorization failed', 'Invalid state parameter.', true);
+        sendToOpener({ type: 'sls_error', error: 'Invalid state parameter.' });
         return;
       }
 
-      // Store in localStorage — the bookmarklet polls for this
-      try {
-        localStorage.setItem(TOKEN_KEY,  token);
-        localStorage.setItem(EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
-      } catch (e) {
-        show('✖', 'Storage error', 'Could not save token: ' + e.message, true);
-        return;
-      }
+      // state = nonce + '.' + codeVerifier
+      var codeVerifier = state.slice(state.indexOf('.') + 1);
 
-      show('✔', 'Authenticated!', 'This window will close automatically…');
+      show('♻', 'Authorizing…', 'Exchanging code for token…');
 
-      // Give the parent a moment to notice, then close
-      setTimeout(function () {
-        window.close();
-        // If window.close() is blocked, show a message
+      fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type:    'authorization_code',
+          code:          code,
+          redirect_uri:  REDIRECT_URI,
+          client_id:     CLIENT_ID,
+          code_verifier: codeVerifier,
+        }),
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error_description || data.error);
+
+        sendToOpener({
+          type:      'sls_token',
+          token:     data.access_token,
+          expiresIn: data.expires_in,
+        });
+
+        show('✔', 'Authenticated!', 'This window will close automatically…');
+
         setTimeout(function () {
-          show('✔', 'Authenticated!', 'You can close this tab and return to the previous page.');
-        }, 500);
-      }, 800);
+          window.close();
+          setTimeout(function () {
+            show('✔', 'Authenticated!', 'You can close this tab and return to the previous page.');
+          }, 500);
+        }, 800);
+      })
+      .catch(function (err) {
+        show('✖', 'Token exchange failed', err.message, true);
+        sendToOpener({ type: 'sls_error', error: err.message });
+      });
     })();
   </script>
 </body>
