@@ -1,5 +1,5 @@
 // ============================================================
-// Liked Songs Shuffed — Spotify Bookmarklet
+// Liked Songs with RNG — Spotify Bookmarklet
 // ------------------------------------------------------------
 // SETUP (one-time):
 //   1. Go to https://developer.spotify.com/dashboard and create an app.
@@ -12,7 +12,7 @@
 var CLIENT_ID    = '54e4d713f18a4e11bf270bcbd0e154ff';
 var REDIRECT_URI = 'https://braidedcable.github.io/spotify-playlist-utils/callback.html';
 
-var PLAYLIST_NAME  = 'Liked Songs Shuffed';
+var PLAYLIST_NAME  = 'Liked Songs with RNG';
 var SCOPES         = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
 var TOKEN_KEY      = 'sls_access_token';
 var EXPIRY_KEY     = 'sls_token_expiry';
@@ -118,7 +118,7 @@ function authenticate() {
         window.removeEventListener('message', onMessage);
         clearInterval(timer);
         if (data.type === 'sls_token') {
-          console.log('[Liked Songs Shuffed] granted scopes:', data.scope);
+          console.log('[Liked Songs with RNG] granted scopes:', data.scope);
           localStorage.setItem(TOKEN_KEY,  data.token);
           localStorage.setItem(EXPIRY_KEY, String(Date.now() + data.expiresIn * 1000));
           try { popup.close(); } catch (_) {}
@@ -322,6 +322,6 @@ function fisherYates(array) {
     .catch(function (err) {
       setStatus(overlay, 'Error: ' + err.message, true);
       dismissOverlay(overlay, 8000);
-      console.error('[Liked Songs Shuffed]', err);
+      console.error('[Liked Songs with RNG]', err);
     });
 })();
