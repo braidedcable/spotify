@@ -109,6 +109,7 @@
           type:      'sls_token',
           token:     data.access_token,
           expiresIn: data.expires_in,
+          scope:     data.scope,
         });
 
         show('✔', 'Authenticated!', 'This window will close automatically…');

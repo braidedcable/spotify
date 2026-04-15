@@ -118,6 +118,7 @@ function authenticate() {
         window.removeEventListener('message', onMessage);
         clearInterval(timer);
         if (data.type === 'sls_token') {
+          console.log('[Liked Songs Shuffed] granted scopes:', data.scope);
           localStorage.setItem(TOKEN_KEY,  data.token);
           localStorage.setItem(EXPIRY_KEY, String(Date.now() + data.expiresIn * 1000));
           try { popup.close(); } catch (_) {}
