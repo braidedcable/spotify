@@ -203,7 +203,7 @@ function findPlaylist(name, userId, token) {
 }
 
 function createPlaylist(userId, name, token) {
-  return spotifyFetch('/users/' + userId + '/playlists', token, {
+  return spotifyFetch('/me/playlists', token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: name, public: false, description: 'Liked Songs — randomized by bookmarklet' }),
