@@ -153,6 +153,7 @@ function spotifyFetch(path, token, options) {
   return fetch(url, Object.assign({}, options, { headers: headers }))
     .then(function (res) {
       if (res.status === 204) return null;
+      if (res.status === 429) throw new Error('Spotify rate limit hit — wait a moment and try again.');
       return res.json().then(function (data) {
         if (!res.ok) {
           var msg = (data && data.error && data.error.message) || res.statusText;
