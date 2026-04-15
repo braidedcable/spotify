@@ -103,7 +103,7 @@ function authenticate() {
         '&state='                 + encodeURIComponent(state) +
         '&code_challenge='        + challenge +
         '&code_challenge_method=S256' +
-        '&show_dialog=false';
+        '&show_dialog=true';
 
       var popup = window.open(authUrl, 'sls_auth', 'width=500,height=700,menubar=no,toolbar=no');
       if (!popup) {
@@ -208,7 +208,7 @@ function createPlaylist(userId, name, token) {
   return spotifyFetch('/me/playlists', token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name, public: false, description: 'Liked Songs — randomized by bookmarklet' }),
+    body: JSON.stringify({ name: name, public: true, description: 'Liked Songs — randomized by bookmarklet' }),
   }).then(function (data) { return data.id; });
 }
 
