@@ -145,15 +145,25 @@ function authenticate() {
 // ── Spotify API helpers ───────────────────────────────────────
 
 
-function spotifyFetch(path, token, options) {
+function sleep(ms) {
+  return new Promise(function (r) { setTimeout(r, ms); });
+}
+
+function spotifyFetch(path, token, options, _retries) {
   options = options || {};
+  _retries = _retries || 0;
   var url = path.startsWith('http') ? path : BASE_URL + path;
   var headers = Object.assign({ Authorization: 'Bearer ' + token }, options.headers || {});
 
   return fetch(url, Object.assign({}, options, { headers: headers }))
     .then(function (res) {
       if (res.status === 204) return null;
-      if (res.status === 429) throw new Error('Spotify rate limit hit — wait a moment and try again.');
+      if (res.status === 429) {
+        if (_retries >= 5) throw new Error('Spotify rate limit hit — too many retries.');
+        var retryAfter = parseInt(res.headers.get('Retry-After') || '0', 10);
+        var backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(1000 * Math.pow(2, _retries), 32000);
+        return sleep(backoff).then(function () { return spotifyFetch(path, token, options, _retries + 1); });
+      }
       return res.json().then(function (data) {
         if (!res.ok) {
           var msg = (data && data.error && data.error.message) || res.statusText;
