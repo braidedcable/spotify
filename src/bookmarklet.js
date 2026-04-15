@@ -178,7 +178,9 @@ function getAllLikedSongs(token, onProgress) {
   function fetchPage(url) {
     return spotifyFetch(url, token).then(function (data) {
       data.items.forEach(function (item) {
-        if (item.track && item.track.uri) uris.push(item.track.uri);
+        if (item.track && item.track.uri && !item.track.uri.startsWith('spotify:local:')) {
+          uris.push(item.track.uri);
+        }
       });
       onProgress(uris.length, data.total);
       if (data.next) return fetchPage(data.next);
