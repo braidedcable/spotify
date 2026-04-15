@@ -10,7 +10,7 @@
 // ============================================================
 
 var CLIENT_ID    = '54e4d713f18a4e11bf270bcbd0e154ff';
-var REDIRECT_URI = 'https://braidedcable.github.io/spotify/callback.html';
+var REDIRECT_URI = 'https://braidedcable.github.io/spotify-playlist-utils/callback.html';
 
 var PLAYLIST_NAME  = 'Liked Songs Shuffed';
 var SCOPES         = 'user-library-read playlist-read-private playlist-modify-public playlist-modify-private';
