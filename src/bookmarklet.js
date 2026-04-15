@@ -215,7 +215,7 @@ function createPlaylist(userId, name, token) {
 
 function replacePlaylistTracks(playlistId, uris, token) {
   var first = uris.slice(0, 100);
-  return spotifyFetch('/playlists/' + playlistId + '/tracks', token, {
+  return spotifyFetch('/playlists/' + playlistId + '/items', token, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uris: first }),
@@ -226,7 +226,7 @@ function replacePlaylistTracks(playlistId, uris, token) {
     }
     return batches.reduce(function (chain, batch) {
       return chain.then(function () {
-        return spotifyFetch('/playlists/' + playlistId + '/tracks', token, {
+        return spotifyFetch('/playlists/' + playlistId + '/items', token, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uris: batch }),
@@ -243,7 +243,7 @@ function addTracksToPlaylist(playlistId, uris, token) {
   }
   return batches.reduce(function (chain, batch) {
     return chain.then(function () {
-      return spotifyFetch('/playlists/' + playlistId + '/tracks', token, {
+      return spotifyFetch('/playlists/' + playlistId + '/items', token, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uris: batch }),
