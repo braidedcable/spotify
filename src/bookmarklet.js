@@ -148,16 +148,18 @@ function sleep(ms) {
   return new Promise(function (r) { setTimeout(r, ms); });
 }
 
-function spotifyFetch(path, token, options) {
+function spotifyFetch(path, token, options, _retries) {
   options = options || {};
+  _retries = _retries || 0;
   var url = path.startsWith('http') ? path : BASE_URL + path;
   var headers = Object.assign({ Authorization: 'Bearer ' + token }, options.headers || {});
 
   return fetch(url, Object.assign({}, options, { headers: headers }))
     .then(function (res) {
       if (res.status === 429) {
+        if (_retries >= 5) throw new Error('Rate limited after 5 retries: ' + url);
         var wait = parseInt(res.headers.get('Retry-After') || '2', 10) * 1000;
-        return sleep(wait).then(function () { return spotifyFetch(path, token, options); });
+        return sleep(wait).then(function () { return spotifyFetch(path, token, options, _retries + 1); });
       }
       if (res.status === 204) return null;
       return res.json().then(function (data) {
