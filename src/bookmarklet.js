@@ -9,7 +9,7 @@
 //   5. Run `npm run build` and use the output as your bookmark URL.
 // ============================================================
 
-var CLIENT_ID    = '54e4d713f18a4e11bf270bcbd0e154ff';
+var CLIENT_ID    = 'e181c5f6b891431e803efca9732c7af9';
 var REDIRECT_URI = 'https://braidedcable.github.io/spotify-playlist-utils/callback.html';
 
 var PLAYLIST_NAME  = 'Liked Songs with RNG';
